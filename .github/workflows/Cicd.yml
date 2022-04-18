@@ -1,0 +1,53 @@
+name: CI + CD
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+
+jobs:
+  Build:
+    runs-on: ubuntu-latest
+    steps:
+      -  uses: actions/checkout@v3.0.1
+
+      - name: Compile
+        run: Echo Hello, world!
+
+  DeployDev:
+    name: Deploy To Dev
+    if: github.evant_name == 'pull_request'
+    neesds: [Build]
+    runs-on: ubuntu-latest
+    environment:
+      name: Development
+      url: "http://dev.myapp.com"
+    steps:
+      - name: Deploy
+        run: echo I am deploying!
+
+  DeployStaging:
+    name: Deploy To Staging
+    if: github.evant.ref == 'refs/heads/main'
+    neesds: [Build]
+    runs-on: ubuntu-latest
+    environment:
+      name: Staging
+      url: "http://test.myapp.com"
+    steps:
+      - name: Deploy
+        run: echo I am deploying! Stage !!!
+
+  DeployProd:
+    name: Deploy To Prod
+#    if: github.evant_name == 'pull_request'
+    neesds: [DeployStaging]
+    runs-on: ubuntu-latest
+    environment:
+      name: Production
+      url: "http://www.myapp.com"
+    steps:
+      - name: Deploy
+        run: echo I am deploying! Prod !!! :-)
