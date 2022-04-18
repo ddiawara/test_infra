@@ -40,7 +40,7 @@ jobs:
         id: init
         run: |
           rm -rf .terraform
-          terraform init -backend-config=${{environment}}/backend.tfvars -upgrade=true -no-color -input=false
+          terraform init -backend-config=sandbox/backend.tfvars -upgrade=true -no-color -input=false
           
 
       # Checks that all Terraform configuration files adhere to a canonical format
@@ -52,7 +52,7 @@ jobs:
       - name: Terraform Plan
         id: plan
         run: |
-          terraform plan -input=false -var-file=${{environment}}/terraform.tfvars -no-color
+          terraform plan -input=false -var-file=sandbox/terraform.tfvars -no-color
 
         # On push to main, build or change infrastructure according to Terraform configuration files
         # Note: It is recommended to set up a required "strict" status check in your repository for "Terraform Cloud". See the documentation on "strict" required status checks for more information: https://help.github.com/en/github/administering-a-repository/types-of-required-status-checks
@@ -64,7 +64,7 @@ jobs:
       - name: Terraform destroy
         if: github.ref == 'refs/heads/destroy'
         id: destroy
-        run: terraform destroy -auto-approve -input=false -var-file=${{ matrix.environment }}/terraform.tfvars
+        run: terraform destroy -auto-approve -input=false -var-file=sandbox/terraform.tfvars
 
   comment:
     runs-on: ubuntu-latest
