@@ -1,9 +1,10 @@
 name: CI + CD
+
 on:
   push:
-    branches: [main]
+    branches: [ main ]
   pull_request:
-    branches: [main]
+    branches: [ main ]
   workflow_dispatch:
 
 
@@ -11,43 +12,44 @@ jobs:
   Build:
     runs-on: ubuntu-latest
     steps:
-      -  uses: actions/checkout@v3.0.1
+      - uses: actions/checkout@v3.0.1
 
       - name: Compile
-        run: Echo Hello, world!
+        run: echo Hello, world!
+
+# //actions/checkout@v3.0.1
 
   DeployDev:
-    name: Deploy To Dev
-    if: github.evant_name == 'pull_request'
-    neesds: [Build]
+    name: Deploy to Dev
+    if: github.event_name == 'pull_request'
+    needs: [Build]
     runs-on: ubuntu-latest
     environment:
       name: Development
-      url: "http://dev.myapp.com"
+      url: 'http://dev.myapp.com'
     steps:
       - name: Deploy
         run: echo I am deploying!
 
   DeployStaging:
-    name: Deploy To Staging
-    if: github.evant.ref == 'refs/heads/main'
+    name: Deploy to Staging
+    if: github.event.ref == 'refs/heads/main'
     needs: [Build]
     runs-on: ubuntu-latest
     environment:
       name: Staging
-      url: "http://test.myapp.com"
+      url: 'http://test.myapp.com'
     steps:
       - name: Deploy
-        run: echo I am deploying! Stage !!!
+        run: echo I am deploying!
 
   DeployProd:
-    name: Deploy To Prod
-#    if: github.evant_name == 'pull_request'
-    neesds: [DeployStaging]
+    name: Deploy to Production
+    needs: [DeployStaging]
     runs-on: ubuntu-latest
     environment:
       name: Production
-      url: "http://www.myapp.com"
+      url: 'http://www.myapp.com'
     steps:
       - name: Deploy
-        run: echo I am deploying! Prod !!! :-)
+        run: echo I am deploying!
