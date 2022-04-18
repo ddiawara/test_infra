@@ -44,7 +44,7 @@ locals {
   key            = join("", [for s in local.chaine : format("%s", s)])
 }
 
-resource "aws_key_pair" "deployer" {
-  key_name   = "${var.project}_${var.environment}_deployer-key"
-  public_key = tls_private_key.this.public_key_openssh
-}
+#resource "aws_key_pair" "deployer" {
+#  key_name   = "${var.project}_${var.environment}_deployer-key"
+#  public_key = tls_private_key.this.public_key_openssh
+#}
