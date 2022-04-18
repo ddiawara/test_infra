@@ -53,7 +53,8 @@ jobs:
       # CHECKS FORMAT
       - name: Terraform Format
         id: format
-        run: terraform fmt -check -diff -recursive ./terraform
+        run: terraform fmt -check
+      #  run: terraform fmt -check -diff -recursive ./terraform
       # PLAN TERRAFORM
       - name: Terraform Plan
         id: plan
