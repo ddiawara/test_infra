@@ -119,7 +119,7 @@ jobs:
   comment:
     runs-on: ubuntu-latest
     needs: terraform
-    if: github.event_name == 'pull_request'
+#    if: github.event_name == 'pull_request'
     steps:
       - uses: actions/github-script@v5
         with:
@@ -132,19 +132,27 @@ jobs:
             })
 
   ## APPLY
-#  inform_about_apply:
-#    name: Inform About Apply
-#    runs-on: ubuntu-20.04
-#    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
-#    steps:
-#      - name: Inform on PR that Apply is Running
-#        uses: mshick/add-pr-comment@v1
-#        with:
-#          repo-token: ${{ secrets.GITHUB_TOKEN }}
-#          repo-token-user-login: 'github-actions[bot]'
-#          message: |
-#            ***Running terraform apply***
-#            Results will display here momentarily...
+  inform_about_apply:
+    name: Inform About Apply
+    runs-on: ubuntu-latest
+#    environment:
+#      name: Development
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    steps:
+      - name: Inform on PR that Apply is Running
+        uses: mshick/add-pr-comment@v1
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          repo-token-user-login: 'github-actions[bot]'
+          message: |
+            ***Running terraform apply***
+            Results will display here momentarily...
+
+  specific_review_requested:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    steps:
+      - run: ls -altr
 
 #  plan_and_apply:
 #    name: Plan and Apply
