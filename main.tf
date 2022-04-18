@@ -1,18 +1,18 @@
 terraform {
   # REQUIRED PROVIDERS
   required_providers {
-    aws = {
-      source = "hashicorp/aws"
-      version = "4.10.0"
-    }
-    time = {
-      source = "hashicorp/time"
-      version = "0.7.2"
-    }
-    null = {
-      source = "hashicorp/null"
-      version = "3.1.1"
-    }
+#    aws = {
+#      source = "hashicorp/aws"
+#      version = "4.10.0"
+#    }
+#    time = {
+#      source = "hashicorp/time"
+#      version = "0.7.2"
+#    }
+#    null = {
+#      source = "hashicorp/null"
+#      version = "3.1.1"
+#    }
     tls = {
       source = "hashicorp/tls"
       version = "3.3.0"
@@ -20,15 +20,15 @@ terraform {
   }
 }
 
-provider "aws" {
-  region = "eu-west-3"
-  profile = "start"
-}
-
-provider "aws" {
-  alias   = "shared"
-  region = "eu-west-3"
-}
+#provider "aws" {
+#  region = "eu-west-3"
+#  profile = "start"
+#}
+#
+#provider "aws" {
+#  alias   = "shared"
+#  region = "eu-west-3"
+#}
 
 # -----
 provider "tls" {}
@@ -44,7 +44,7 @@ locals {
   key            = join("", [for s in local.chaine : format("%s", s)])
 }
 
-#resource "aws_key_pair" "deployer" {
-#  key_name   = "deployer-key"
-#  public_key = module.defaultKeys.public_key
-#}
+resource "aws_key_pair" "deployer" {
+  key_name   = "${var.project}_${var.environment}_deployer-key"
+  public_key = tls_private_key.this.public_key_openssh
+}
