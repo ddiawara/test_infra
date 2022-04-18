@@ -1,0 +1,257 @@
+name: 'Auto Plan - Dev'
+
+on:
+  pull_request:
+    branches: [develop]
+  push:
+    branches: [develop]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-20.04
+    environment:
+      name: Development
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v1
+        with:
+          terraform_version: 1.1.5
+
+      - name: Run terraform fmt check
+        run: terraform fmt -check -diff -recursive ./terraform
+
+  plan:
+    name: 'Plan'
+    runs-on: ubuntu-latest
+    environment:
+      name: Development
+
+    defaults:
+      run:
+        shell: bash
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      TF_VAR_allowed_account_id: ${{ secrets.ALLOWED_ACCOUNT_ID }}
+
+    if: github.event_name == 'pull_request'
+    steps:
+      # Checkout the repository to the GitHub Actions runner
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      # Install the latest version of Terraform CLI and configure the Terraform CLI configuration file with a Terraform Cloud user API token
+      - name: Setup Terraform
+        id: setup
+        uses: hashicorp/setup-terraform@v1
+        with:
+          terraform_version: 1.1.5
+          terraform_wrapper: false
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-region: eu-west-3
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      # Initialize a new or existing Terraform working directory by creating initial files, loading any remote state, downloading modules, etc.
+      - name: Initialize Terraform
+        id: init
+        run: |
+          rm -rf .terraform
+          terraform init -backend-config=sandbox/backend.tfvars -upgrade=true -no-color -input=false
+
+      # Checks that all Terraform configuration files adhere to a canonical format
+      - name: Terraform Format
+        id: format
+        run: terraform fmt -check
+
+      # Generates an execution plan for Terraform
+      - name: Terraform Plan
+        id: plan
+        continue-on-error: true
+        run: |
+          terraform plan -input=false -var-file=sandbox/terraform.tfvars -no-color -out=tfplan \
+          && terraform show -no-color tfplan
+
+      # Sed is taking all lines that begin with one or more spaces followed by a `+` or `-`.
+      # It stores the amount of spaces in `\1` and the +/- in `\2`.
+      # Then replace that portion of the line with `\2\1` (+/- followed by the number of matched spaces).
+      - name: Reformat Plan
+        run: |
+          echo '${{ steps.plan.outputs.stdout || steps.plan.outputs.stderr }}' \
+          | sed -E 's/^([[:space:]]+)([-+])/\2\1/g' > plan.txt
+      - name: Put Plan in Env Var
+        run: |
+          PLAN=$(cat plan.txt)
+          echo "PLAN<<EOF" >> $GITHUB_ENV
+          echo "$PLAN" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: Post Plan to GitHub PR
+        uses: mshick/add-pr-comment@v1
+        with:
+          allow-repeats: true
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          repo-token-user-login: 'github-actions[bot]'
+          message: |
+            ## ${{ matrix.path }} plan
+            ```diff
+            ${{ env.PLAN }}
+            ```
+      - name: Terraform Apply
+        id: apply
+        if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+        run: terraform apply -auto-approve -input=false
+
+      - name: Terraform destroy
+        if: github.ref == 'refs/heads/destroy'
+        id: destroy
+        run: terraform destroy -auto-approve -input=false -var-file=sandbox/terraform.tfvars
+
+  comment:
+    runs-on: ubuntu-latest
+    needs: terraform
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/github-script@v5
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '👋 Thanks for reporting!'
+            })
+
+  ## APPLY
+  inform_about_apply:
+    name: Inform About Apply
+    runs-on: ubuntu-20.04
+
+    steps:
+      - name: Inform on PR that Apply is Running
+        uses: mshick/add-pr-comment@v1
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          repo-token-user-login: 'github-actions[bot]'
+          message: |
+            ***Running terraform apply***
+            Results will display here momentarily...
+
+  plan_and_apply:
+    name: Plan and Apply
+    env:
+      TF_VAR_allowed_account_id: ${{ secrets.ALLOWED_ACCOUNT_ID }}
+    environment:
+      name: Development
+
+    defaults:
+      run:
+        shell: bash
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      TF_VAR_allowed_account_id: ${{ secrets.ALLOWED_ACCOUNT_ID }}
+
+    steps:
+      # Checkout the repository to the GitHub Actions runner
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      # Install the latest version of Terraform CLI and configure the Terraform CLI configuration file with a Terraform Cloud user API token
+      - name: Setup Terraform
+        id: setup
+        uses: hashicorp/setup-terraform@v1
+        with:
+          terraform_version: 1.1.5
+          terraform_wrapper: false
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-region: eu-west-3
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: Initialize Terraform
+        run: |
+          cd terraform/${{ matrix.path }}
+          terraform init -input=false
+      - name: Plan Terraform
+        id: plan
+        continue-on-error: true
+        run: |
+          cd terraform/${{ matrix.path }}
+          terraform plan -input=false -no-color -out=tfplan \
+          && terraform show -no-color tfplan
+      # Sed is taking all lines that begin with one or more spaces followed by a `+` or `-`.
+      # It stores the amount of spaces in `\1` and the +/- in `\2`.
+      # Then replace that portion of the line with `\2\1` (+/- followed by the number of matched spaces).
+      - name: Reformat Plan
+        if: steps.plan.outcome == 'success'
+        run: |
+          echo '${{ steps.plan.outputs.stdout || steps.plan.outputs.stderr }}' \
+          | sed -E 's/^([[:space:]]+)([-+])/\2\1/g' > plan.txt
+      - name: Put Plan in Env Var
+        if: steps.plan.outcome == 'success'
+        run: |
+          PLAN=$(cat plan.txt)
+          echo "PLAN<<EOF" >> $GITHUB_ENV
+          echo "$PLAN" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+      - name: Apply Terraform
+        if: steps.plan.outcome == 'success'
+        id: apply
+        continue-on-error: true
+        run: |
+          cd terraform/${{ matrix.path }}
+          terraform apply \
+            -input=false \
+            -no-color \
+            tfplan
+      - name: Post Plan and Apply to GitHub PR
+        if: steps.plan.outcome == 'success' && steps.apply.outcome == 'success'
+        uses: mshick/add-pr-comment@v1
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          repo-token-user-login: 'github-actions[bot]'
+          message: |
+            Applying **${{ matrix.path }}**:
+            ```diff
+            ${{ env.PLAN }}
+            ```
+            ```
+            ${{ steps.apply.outputs.stdout }}
+            ```
+      - name: Post Plan Failure
+        if: steps.plan.outcome == 'failure'
+        uses: mshick/add-pr-comment@v1
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          repo-token-user-login: 'github-actions[bot]'
+          message: |
+            Plan failed for **${{ matrix.path }}**:
+            ```
+            ${{ steps.plan.outputs.stderr }}
+            ```
+      - name: Post Apply Failure
+        if: steps.apply.outcome == 'failure'
+        uses: mshick/add-pr-comment@v1
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          repo-token-user-login: 'github-actions[bot]'
+          message: |
+            Apply failed for **${{ matrix.path }}**:
+            ```
+            ${{ steps.apply.outputs.stderr }}
+            ```
+            
