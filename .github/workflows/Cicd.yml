@@ -31,7 +31,7 @@ jobs:
   DeployStaging:
     name: Deploy To Staging
     if: github.evant.ref == 'refs/heads/main'
-    neesds: [Build]
+    needs: [Build]
     runs-on: ubuntu-latest
     environment:
       name: Staging
