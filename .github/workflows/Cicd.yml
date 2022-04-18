@@ -19,7 +19,7 @@ jobs:
   DeployDev:
     name: Deploy To Dev
     if: github.evant_name == 'pull_request'
-    neesds: [Build]
+    needs: [Build]
     runs-on: ubuntu-latest
     environment:
       name: Development
@@ -43,7 +43,7 @@ jobs:
   DeployProd:
     name: Deploy To Prod
 #    if: github.evant_name == 'pull_request'
-    neesds: [DeployStaging]
+    needs: [DeployStaging]
     runs-on: ubuntu-latest
     environment:
       name: Production
